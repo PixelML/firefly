@@ -146,7 +146,7 @@ def evaluate(y_true, scores, threshold=0.5):
         "roc_auc": round(roc_auc(y_true, scores), 4),
         "confusion_undamaged_damaged": [[tn, fp], [fn, tp]],
         "precision_recall_f1_per_class": {"undamaged": prf(tn, fp, fn),
-                                          "damaged": prf(tp, fn, tn)},
+                                          "damaged": prf(tp, fp, fn)},
     }
 
 
