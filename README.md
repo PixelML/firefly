@@ -9,29 +9,56 @@ a fixed set of 1,024 downstream neurons; a tiny 64-unit MLP decoder — the only
 trained component — maps spikes to **undamaged vs damaged**.
 
 Task framing: a plain ML benchmark on the Etkin satellite structure-damage
-tiles (~18.7k unique tiles, binary collapse of 5 assessor damage grades,
-chance = majority class). Numbers below are the committed benchmark; the
-protocol (split, downstream pick, decoder family, seeds, ablations) was
-committed before results.
+tiles (binary collapse of 5 assessor damage grades). Numbers below are the
+committed benchmark; the protocol (split, downstream pick, decoder family,
+seeds, ablations) was committed before any binary result was generated.
 
 ## Results
 
-| feature extractor | bal acc ↑ | AUC ↑ | acc |
-|---|---|---|---|
-| chance | 0.500 | 0.500 | majority |
-| **frozen fly circuit** (the experiment) | _run pending_ | | |
-| shuffled connectome (rewired control) | _run pending_ | | |
-| all-excitatory (inhibition removed) | _run pending_ | | |
-| random sparse wiring | _run pending_ | | |
-| pooled pixels, no circuit | _run pending_ | | |
+18,318 unique tiles (hash-deduped; 1,222 undamaged / 17,096 damaged — the
+majority class predicts 93.3% accuracy, so raw accuracy is meaningless here;
+balanced accuracy and ROC-AUC are the primary metrics). Same split, same
+frozen 1,024-downstream pick, same decoder family, 3 decoder seeds,
+1000-resample bootstrap CIs in `results/benchmark.json`.
 
-Lesion ablations (decoder frozen): optic lobe / central brain / VNC silenced,
-a matched-size random neuron set, and no-image control — filled in
-`results/benchmark.json` by the same run.
+| feature extractor | bal acc ↑ | AUC ↑ |
+|---|---|---|
+| chance | 0.500 | 0.500 |
+| **frozen fly circuit** (the experiment) | **0.588** [0.541–0.614] | **0.622** |
+| shuffled connectome (degree-preserving rewiring) | 0.585 | 0.625 |
+| all-excitatory (inhibition removed) | 0.609 | 0.642 |
+| random sparse wiring (same nnz) | 0.510 | 0.632 |
+| pooled pixels, no circuit | **0.655** | **0.711** |
+| label shuffle (leakage check) | — | 0.400 |
+
+### Verdict
+
+1. **The specific wiring carries no detectable task-relevant structure.**
+   The real connectome (AUC 0.622) is indistinguishable from a degree-
+   preserving rewiring (0.625), from removing all inhibition (0.642), and
+   from a random sparse matrix with matched nnz (0.632). Whatever lifts the
+   score above chance lives in the retinal encoding + generic nonlinear
+   mixing dynamics, not in the connectome's connectivity.
+2. **Pooled pixels beat the circuit** (AUC 0.711 vs 0.622; balanced acc
+   0.655 vs 0.588) — the 48-tick fixed circuit is a lossy, noisy transform
+   of its 99-dim drive.
+3. **Lesions have no specificity.** Silencing the optic lobe, the central
+   brain, the VNC, or a matched-size random neuron set all collapse the
+   frozen decoder to the majority-class predictor (bal acc ≈ 0.50). The
+   above-chance signal needs the whole circuit; it is not specifically
+   visual. Removing the image entirely does the same.
+4. **No leakage detected** (label-shuffle control AUC 0.400, i.e. the
+   chance band; strong leakage would push AUC ≫ 0.5).
+
+An interesting, decisive negative result: as driven here (99-patch retinal
+sample → 99 sensory neurons), the fly brain is interchangeable with a random
+fixed projection. What would falsify that conclusion: driving it with
+anatomically motivated inputs (e.g. columnar retina geometry, motion) or
+tasks closer to what the optic lobe computes.
 
 **Live demo** (k3s NodePort, LAN): `http://192.168.2.36:30181` — tile in,
-damage score + connectome wave out, lesion switches replay the ablation live.
-
+damage score + connectome wave out, lesion switches replay the ablation live,
+held-out hits/misses gallery included.
 ## Method
 
 ```

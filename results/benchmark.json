@@ -1,0 +1,404 @@
+{
+  "meta": {
+    "task": "binary wildfire-damage classification of satellite tiles (undamaged vs damaged) through a frozen Drosophila connectome",
+    "circuit": "MaleCNS v1.0 frozen; 48-tick response; log1p spike counts of a fixed 1024-downstream-neuron set picked once from the busiest non-sensory neurons on the first 512 training drives",
+    "decoder": "standardized 64-unit MLP, 2 classes, class-weighted CE, 30 epochs",
+    "split": "stratified 85/15 tile-level, seed 0; tiles hash-deduped; no scene metadata in source, so near-duplicate scene leakage is possible",
+    "threshold": 0.5,
+    "scores_calibrated": false,
+    "decoder_seeds": [
+      0,
+      1,
+      2
+    ],
+    "bootstrap_resamples": 1000,
+    "primary_metrics": "balanced_accuracy, roc_auc (chance 0.5)",
+    "dataset": "Etkin et al. structure-damage tiles via kevincluo/structure_wildfire_damage_classification (apache-2.0)",
+    "recipe_after": "jerryjliu/fly_ocr (MIT), nftechie/doomfly (MIT)",
+    "data": {
+      "unique_tiles": 18318,
+      "undamaged": 1222,
+      "damaged": 17096,
+      "train": 15569,
+      "val": 2749
+    }
+  },
+  "conditions": {
+    "real": {
+      "accuracy": 0.6177,
+      "balanced_accuracy": 0.5883,
+      "roc_auc": 0.6223,
+      "confusion_undamaged_damaged": [
+        [
+          102,
+          82
+        ],
+        [
+          969,
+          1596
+        ]
+      ],
+      "precision_recall_f1_per_class": {
+        "undamaged": [
+          0.5543,
+          0.0952,
+          0.1625
+        ],
+        "damaged": [
+          0.6222,
+          0.9399,
+          0.7488
+        ]
+      },
+      "accuracy_seeds": [
+        0.7443,
+        0.7243,
+        0.6177
+      ],
+      "ci": {
+        "accuracy": [
+          0.7279,
+          0.7603
+        ],
+        "balanced_accuracy": [
+          0.5414,
+          0.6143
+        ],
+        "roc_auc": [
+          0.5804,
+          0.6608
+        ]
+      }
+    },
+    "shuffled": {
+      "accuracy": 0.6588,
+      "balanced_accuracy": 0.5851,
+      "roc_auc": 0.6253,
+      "confusion_undamaged_damaged": [
+        [
+          92,
+          92
+        ],
+        [
+          846,
+          1719
+        ]
+      ],
+      "precision_recall_f1_per_class": {
+        "undamaged": [
+          0.5,
+          0.0981,
+          0.164
+        ],
+        "damaged": [
+          0.6702,
+          0.9492,
+          0.7856
+        ]
+      },
+      "accuracy_seeds": [
+        0.781,
+        0.7112,
+        0.6588
+      ],
+      "ci": {
+        "accuracy": [
+          0.7661,
+          0.7963
+        ],
+        "balanced_accuracy": [
+          0.5073,
+          0.5731
+        ],
+        "roc_auc": [
+          0.5529,
+          0.6368
+        ]
+      }
+    },
+    "all_excitatory": {
+      "accuracy": 0.7123,
+      "balanced_accuracy": 0.6087,
+      "roc_auc": 0.642,
+      "confusion_undamaged_damaged": [
+        [
+          90,
+          94
+        ],
+        [
+          697,
+          1868
+        ]
+      ],
+      "precision_recall_f1_per_class": {
+        "undamaged": [
+          0.4891,
+          0.1144,
+          0.1854
+        ],
+        "damaged": [
+          0.7283,
+          0.954,
+          0.826
+        ]
+      },
+      "accuracy_seeds": [
+        0.7177,
+        0.7941,
+        0.7123
+      ],
+      "ci": {
+        "accuracy": [
+          0.6999,
+          0.7337
+        ],
+        "balanced_accuracy": [
+          0.5513,
+          0.6232
+        ],
+        "roc_auc": [
+          0.5978,
+          0.682
+        ]
+      }
+    },
+    "random_sparse": {
+      "accuracy": 0.9243,
+      "balanced_accuracy": 0.5105,
+      "roc_auc": 0.6321,
+      "confusion_undamaged_damaged": [
+        [
+          6,
+          178
+        ],
+        [
+          30,
+          2535
+        ]
+      ],
+      "precision_recall_f1_per_class": {
+        "undamaged": [
+          0.0326,
+          0.1667,
+          0.0545
+        ],
+        "damaged": [
+          0.9883,
+          0.9976,
+          0.9929
+        ]
+      },
+      "accuracy_seeds": [
+        0.5897,
+        0.5609,
+        0.9243
+      ],
+      "ci": {
+        "accuracy": [
+          0.5711,
+          0.6071
+        ],
+        "balanced_accuracy": [
+          0.5617,
+          0.6359
+        ],
+        "roc_auc": [
+          0.5916,
+          0.6724
+        ]
+      }
+    },
+    "pixel_mlp": {
+      "accuracy": 0.7887,
+      "balanced_accuracy": 0.6547,
+      "roc_auc": 0.7111,
+      "confusion_undamaged_damaged": [
+        [
+          92,
+          92
+        ],
+        [
+          489,
+          2076
+        ]
+      ],
+      "precision_recall_f1_per_class": {
+        "undamaged": [
+          0.5,
+          0.1583,
+          0.2405
+        ],
+        "damaged": [
+          0.8094,
+          0.9576,
+          0.8772
+        ]
+      },
+      "accuracy_seeds": [
+        0.8196,
+        0.7832,
+        0.7887
+      ],
+      "ci": {
+        "accuracy": [
+          0.8054,
+          0.8345
+        ],
+        "balanced_accuracy": [
+          0.5853,
+          0.6567
+        ],
+        "roc_auc": [
+          0.6611,
+          0.7418
+        ]
+      }
+    },
+    "label_shuffle": {
+      "roc_auc": 0.3997,
+      "note": "shuffled train labels, true val labels; AUC ~0.5 means no leakage"
+    },
+    "lesions": {
+      "optic_lesioned": {
+        "accuracy": 0.0669,
+        "balanced_accuracy": 0.5,
+        "roc_auc": 0.5,
+        "confusion_undamaged_damaged": [
+          [
+            184,
+            0
+          ],
+          [
+            2565,
+            0
+          ]
+        ],
+        "precision_recall_f1_per_class": {
+          "undamaged": [
+            1.0,
+            0.0669,
+            0.1255
+          ],
+          "damaged": [
+            0.0,
+            0.0,
+            null
+          ]
+        },
+        "delta_balanced_accuracy": -0.0883
+      },
+      "central_lesioned": {
+        "accuracy": 0.1444,
+        "balanced_accuracy": 0.4885,
+        "roc_auc": 0.4958,
+        "confusion_undamaged_damaged": [
+          [
+            163,
+            21
+          ],
+          [
+            2331,
+            234
+          ]
+        ],
+        "precision_recall_f1_per_class": {
+          "undamaged": [
+            0.8859,
+            0.0654,
+            0.1217
+          ],
+          "damaged": [
+            0.0912,
+            0.5894,
+            0.158
+          ]
+        },
+        "delta_balanced_accuracy": -0.0998
+      },
+      "vnc_lesioned": {
+        "accuracy": 0.1561,
+        "balanced_accuracy": 0.4797,
+        "roc_auc": 0.4856,
+        "confusion_undamaged_damaged": [
+          [
+            157,
+            27
+          ],
+          [
+            2293,
+            272
+          ]
+        ],
+        "precision_recall_f1_per_class": {
+          "undamaged": [
+            0.8533,
+            0.0641,
+            0.1192
+          ],
+          "damaged": [
+            0.106,
+            0.634,
+            0.1817
+          ]
+        },
+        "delta_balanced_accuracy": -0.1086
+      },
+      "random_matched_optic": {
+        "accuracy": 0.0669,
+        "balanced_accuracy": 0.5,
+        "roc_auc": 0.5046,
+        "confusion_undamaged_damaged": [
+          [
+            184,
+            0
+          ],
+          [
+            2565,
+            0
+          ]
+        ],
+        "precision_recall_f1_per_class": {
+          "undamaged": [
+            1.0,
+            0.0669,
+            0.1255
+          ],
+          "damaged": [
+            0.0,
+            0.0,
+            null
+          ]
+        },
+        "delta_balanced_accuracy": -0.0883
+      },
+      "no_sensory_input": {
+        "accuracy": 0.0669,
+        "balanced_accuracy": 0.5,
+        "roc_auc": 0.4894,
+        "confusion_undamaged_damaged": [
+          [
+            184,
+            0
+          ],
+          [
+            2565,
+            0
+          ]
+        ],
+        "precision_recall_f1_per_class": {
+          "undamaged": [
+            1.0,
+            0.0669,
+            0.1255
+          ],
+          "damaged": [
+            0.0,
+            0.0,
+            null
+          ]
+        },
+        "note": "drive replaced with zeros: what the decoder reads without an image"
+      }
+    }
+  }
+}

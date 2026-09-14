@@ -9,9 +9,10 @@ in the browser. Endpoints are sync so FastAPI runs the sim in its threadpool.
 """
 from __future__ import annotations
 
+import io
 import json
 import os
-import io
+import time
 from pathlib import Path
 
 import numpy as np
@@ -32,6 +33,17 @@ STEPS = 48
 
 app = FastAPI(title="firefly")
 state: dict = {}
+
+
+def _no_nan(o):
+    """Strict JSON: NaN/Inf are not representable; they read as missing."""
+    if isinstance(o, float):
+        return None if (o != o or o in (float("inf"), float("-inf"))) else o
+    if isinstance(o, dict):
+        return {k: _no_nan(v) for k, v in o.items()}
+    if isinstance(o, list):
+        return [_no_nan(v) for v in o]
+    return o
 
 
 def build_brain_sample(meta: dict, n_optic=1300, n_central=1300, n_vnc=800) -> dict:
@@ -103,7 +115,7 @@ def startup():
     state["dec"] = {k: load(k) for k in ("W1", "b1", "W2", "b2", "mu", "sd")}
     state["downstream"] = load("downstream").long()
     bench = OUT / "results" / "benchmark.json"
-    state["benchmark"] = json.loads(bench.read_text()) if bench.exists() else None
+    state["benchmark"] = _no_nan(json.loads(bench.read_text())) if bench.exists() else None
     mf = OUT / "samples" / "manifest.json"
     state["samples"] = json.loads(mf.read_text()) if mf.exists() else {"tiles": []}
 
@@ -208,6 +220,7 @@ async def api_classify(request: Request):
 
 @app.post("/api/silence")
 def api_silence(body: dict):
+    """Silence a brain region live: 0 optic, 1 central, 2 VNC, null restores."""
     r = body.get("region")
     r = int(r) if r is not None and str(r) != "null" else None
     if r is not None and r not in (0, 1, 2):
@@ -244,7 +257,6 @@ async def no_store_html(request, call_next):
     if p == "/" or p == "/index.html" or p.startswith("/api"):
         response.headers["Cache-Control"] = "no-store"
     return response
-
 
 
 app.mount("/", StaticFiles(directory=str(STATIC_DIR), html=True), name="static")

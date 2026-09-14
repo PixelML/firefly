@@ -344,8 +344,17 @@ def main():
                            "score": round(float(real["scores"][j]), 4)})
     save_gallery(args.out, locs, gallery)
 
+    def no_nan(o):
+        if isinstance(o, float):
+            return None if (o != o or o in (float("inf"), float("-inf"))) else o
+        if isinstance(o, dict):
+            return {k: no_nan(v) for k, v in o.items()}
+        if isinstance(o, list):
+            return [no_nan(v) for v in o]
+        return o
     (args.out / "results" / "benchmark.json").write_text(
-        json.dumps({"meta": meta, "conditions": conditions}, indent=2) + "\n")
+        json.dumps(no_nan({"meta": meta, "conditions": conditions}), indent=2,
+                   allow_nan=False) + "\n")
     np.savez(args.out / "readout.npz",
              W1=real["dec"][0].weight.detach().cpu().numpy(),
              b1=real["dec"][0].bias.detach().cpu().numpy(),
