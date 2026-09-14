@@ -1,0 +1,477 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>firefly — wildfire damage detection through a fly brain</title>
+<style>
+  :root{
+    --bg:#06070a; --line:#1c1f27; --ink:#e8eaf0; --dim:#828898;
+    --cobalt:#5ac8ff; --red:#ff4a3d; --green:#69d86f;
+  }
+  *{box-sizing:border-box}
+  html,body{height:100%}
+  body{margin:0;background:var(--bg);color:var(--ink);overflow:hidden;
+       font:14px/1.5 -apple-system,"SF Pro Text","Segoe UI",system-ui,sans-serif;
+       -webkit-font-smoothing:antialiased}
+  ::selection{background:#12314a;color:#dff1ff}
+  #scene{position:fixed;inset:0;display:block}
+  .hud{position:fixed;z-index:10}
+  #wordmark{top:26px;left:30px;pointer-events:none}
+  #wordmark .t{font-family:"Big Shoulders Display","Arial Narrow",sans-serif;
+      font-size:38px;font-weight:700;color:var(--cobalt);
+      text-shadow:0 0 24px #5ac8ff55,0 0 4px #5ac8ff33}
+  #wordmark .s{color:var(--dim);font-size:12px;margin-top:2px}
+  #wordmark .s b{color:var(--ink);font-weight:600}
+
+  .card{background:#0b0d12ee;border:1px solid var(--line);
+        border-radius:14px;padding:12px 14px;box-shadow:0 18px 50px #00000080}
+  .card h3{margin:0 0 8px;font-size:10.5px;letter-spacing:.12em;text-transform:uppercase;
+           color:var(--dim);font-weight:600}
+
+  #tilecard{top:120px;left:30px;width:300px}
+  #firetile-wrap{position:relative;margin-bottom:9px}
+  #firetile{width:100%;aspect-ratio:1;object-fit:cover;border-radius:10px;
+            border:1px solid var(--line);display:block;background:#000}
+  #fbadge{position:absolute;top:8px;left:8px;background:#0b0d12ee;border:1px solid var(--red);
+          color:var(--red);font-size:10px;border-radius:6px;padding:2px 7px;display:none}
+  #scorewrap{margin:4px 0 8px}
+  #verdict{font-size:15px;margin-bottom:2px}
+  #verdict b.d{color:var(--red)}
+  #verdict b.u{color:var(--green)}
+  .bar{height:8px;background:#161a22;border-radius:4px;overflow:hidden;position:relative}
+  .bar .fill{height:100%;width:0;background:var(--red);transition:width .3s ease-out}
+  .bar .mid{position:absolute;left:50%;top:-2px;bottom:-2px;width:1px;background:var(--dim);opacity:.6}
+  .barlab{display:flex;justify-content:space-between;font-size:10.5px;color:var(--dim);margin-top:3px}
+  #truthline{font-size:11.5px;color:var(--dim);margin:6px 0;min-height:16px}
+  #truthline b{color:var(--ink)}
+  #thumbs{display:grid;grid-template-columns:repeat(6,1fr);gap:5px;margin-top:10px}
+  #thumbs img{width:100%;aspect-ratio:1;object-fit:cover;border-radius:5px;
+              border:1px solid var(--line);cursor:pointer;opacity:.7;
+              transition:opacity .15s,border-color .15s}
+  #thumbs img:hover{opacity:1;border-color:#39404f}
+  #thumbs img.sel{border-color:var(--cobalt);opacity:1}
+  #thumbs img.miss{border-color:#ff4a3d66}
+  .btns{display:flex;gap:8px;margin-top:10px}
+  button{background:#141821;color:var(--ink);border:1px solid var(--line);border-radius:9px;
+         padding:7px 12px;font:inherit;font-size:12.5px;cursor:pointer;
+         transition:background .15s,border-color .15s}
+  button:hover{border-color:#39404f;background:#1a1f2a}
+
+  #rail{top:20px;right:20px;width:296px}
+  .digits{font-family:ui-monospace,"SF Mono",Menlo,monospace;font-size:22px;font-weight:600;
+          font-variant-numeric:tabular-nums}
+  .digits small{font-size:11px;color:var(--dim);font-weight:400;margin-left:6px}
+  .row{display:flex;justify-content:space-between;align-items:baseline;margin:2px 0}
+  .row .lab{color:var(--dim);font-size:11px;letter-spacing:.04em}
+  button.les{background:#10131a;border:1px solid var(--line);color:var(--dim);border-radius:6px;
+             padding:3px 9px;font-size:10.5px;cursor:pointer}
+  button.les:hover{border-color:#39404f;color:var(--ink)}
+  button.les.on{border-color:var(--red);color:var(--red)}
+  #railnote{font-size:11px;color:var(--dim);margin:8px 0 2px}
+
+  #bench{bottom:20px;left:30px;right:336px;max-height:42vh;overflow:auto}
+  #bench table{width:100%;border-collapse:collapse;font-size:12px}
+  #bench th{font-size:10px;text-transform:uppercase;letter-spacing:.08em;color:var(--dim);
+            text-align:left;padding:3px 6px;font-weight:600}
+  #bench td{padding:4px 6px;border-top:1px solid #161a22;font-variant-numeric:tabular-nums}
+  #bench td.num{text-align:right}
+  #bench tr.hero td{background:#101623}
+  #bench .bacc{font-weight:600}
+  .sect{margin-top:12px}
+  .cols{display:flex;gap:24px;flex-wrap:wrap}
+  .cols>div{flex:1;min-width:260px}
+  #status{bottom:26px;right:336px;font-size:13px;color:var(--dim);
+          display:flex;align-items:center;gap:9px;z-index:10;position:fixed}
+  #status .dot{width:7px;height:7px;border-radius:50%;background:var(--dim)}
+  #status .dot.live{background:var(--cobalt);box-shadow:0 0 10px var(--cobalt);
+                    animation:pulse .8s ease-in-out infinite}
+  @keyframes pulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.35;transform:scale(.7)}}
+  #foot{position:fixed;bottom:8px;left:50%;transform:translateX(-50%);font-size:10.5px;
+        color:#565b68;z-index:5;text-align:center;width:90vw}
+</style>
+</head>
+<body>
+<canvas id="scene"></canvas>
+
+<div class="hud" id="wordmark">
+  <div class="t">FIREFLY</div>
+  <div class="s">can a frozen <b>Drosophila</b> connectome detect wildfire damage from orbit? — <b id="hdr">loading circuit…</b></div>
+</div>
+
+<div class="hud card" id="tilecard">
+  <h3>Tile · held-out set</h3>
+  <div id="firetile-wrap">
+    <img id="firetile" alt="satellite tile">
+    <div id="fbadge">optic lobe silenced</div>
+  </div>
+  <div id="verdict">the fly's read: <b>—</b></div>
+  <div id="scorewrap">
+    <div class="bar"><div class="fill" id="scorefill"></div><div class="mid"></div></div>
+    <div class="barlab"><span>undamaged</span><span>damage score <b id="scorenum">—</b></span><span>damaged</span></div>
+  </div>
+  <div id="truthline">pick a tile — green border = the fly got it, red = it missed (held-out verdict)</div>
+  <div id="thumbs"></div>
+  <div class="btns">
+    <button id="fupload-btn">Upload a tile</button>
+    <input type="file" id="fupload" accept="image/*" hidden>
+  </div>
+</div>
+
+<div class="hud card" id="rail">
+  <h3>Circuit · decision window</h3>
+  <div class="digits"><span id="s1">—</span><small>spikes / 48 ticks</small></div>
+  <div class="row"><span class="lab">inference time</span><span class="digits" style="font-size:14px"><span id="s3">—</span> ms</span></div>
+  <div class="row"><span class="lab">neurons</span><span class="digits" style="font-size:14px">166,700</span></div>
+  <div class="row"><span class="lab">synapses (frozen)</span><span class="digits" style="font-size:14px">25.6M</span></div>
+  <div style="margin-top:10px;padding-top:10px;border-top:1px solid var(--line)">
+    <div id="railnote">lesion — silence a region and re-run the tile (the benchmark's ablation, live)</div>
+    <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px">
+      <button class="les" data-r="0">optic lobe</button>
+      <button class="les" data-r="1">central brain</button>
+      <button class="les" data-r="2">VNC</button>
+      <button class="les" data-r="">restore</button>
+    </div>
+  </div>
+</div>
+
+<div class="hud card" id="bench"><div id="benchbody">loading benchmark…</div></div>
+
+<div id="status"><span class="dot"></span><span id="msg">Loading…</span></div>
+
+<div id="foot">frozen MaleCNS v1.0 (166,700 neurons · 25.6M synapses, Janelia+Google CC-BY) as a feature extractor · decoder is the only trained part · data: Etkin structure-damage tiles (apache-2.0) · method after fly_ocr (MIT) + doomfly (MIT)</div>
+
+<script src="/vendor/three.min.js"></script>
+<script>
+let busy=false;
+const LESION_NAMES=['optic lobe','central brain','VNC'];
+
+/* ============================== scene (connectome + fly, no board) ============================== */
+let renderer,scene,camera,brainPts,brainMat;
+let camTheta=0.66,camPhi=1.08,camDist=6.0;
+const camTgt=new THREE.Vector3(0,0.15,-1.2);
+let waveT=-1,waveData=null;
+let flyFly=null;
+
+function buildFlyFly(){
+  const g=new THREE.Group();
+  const glass=(c,e,ei)=>new THREE.MeshStandardMaterial({color:c,roughness:.25,metalness:.15,
+    emissive:new THREE.Color(e),emissiveIntensity:ei,transparent:true,opacity:.94});
+  const thorax=new THREE.Mesh(new THREE.SphereGeometry(0.16,16,14),glass(0x1a1210,0x351408,0.6));
+  thorax.scale.set(1,0.85,0.8);g.add(thorax);
+  const abdomen=new THREE.Mesh(new THREE.SphereGeometry(0.13,16,14),glass(0x140d0b,0x2a0f06,0.6));
+  abdomen.scale.set(2.1,0.75,0.7);abdomen.position.x=-0.36;g.add(abdomen);
+  const band=new THREE.Mesh(new THREE.TorusGeometry(0.1,0.014,8,24),glass(0x5ac8ff,0x5ac8ff,1.6));
+  band.rotation.y=Math.PI/2;band.position.x=-0.24;g.add(band);
+  const head=new THREE.Mesh(new THREE.SphereGeometry(0.1,14,12),glass(0x18100e,0x2a0f06,0.6));
+  head.position.set(0.22,0.04,0);g.add(head);
+  const eye=new THREE.SphereGeometry(0.062,12,10);
+  const eyeMat=new THREE.MeshStandardMaterial({color:0x30080a,roughness:.15,
+    emissive:new THREE.Color(0xff2b1d),emissiveIntensity:1.9});
+  const e1=new THREE.Mesh(eye,eyeMat);e1.position.set(0.26,0.06,0.07);g.add(e1);
+  const e2=new THREE.Mesh(eye,eyeMat);e2.position.set(0.26,0.06,-0.07);g.add(e2);
+  const legGeo=new THREE.CylinderGeometry(0.012,0.008,0.34,6);
+  const legMat=new THREE.MeshStandardMaterial({color:0x0e0b09,roughness:.4,
+    emissive:new THREE.Color(0xff4a3d),emissiveIntensity:0.25});
+  for(const [sx,sz,tilt] of [[1,1,0.5],[1,-1,-0.5],[-1,1,0.35],[-1,-1,-0.35],[1,0,0],[-1,0,0.15]]){
+    const leg=new THREE.Mesh(legGeo,legMat);
+    leg.position.set(sx*0.1,-0.12,sz*0.13);
+    leg.rotation.z=sx*tilt; leg.rotation.x=sz*0.4;
+    g.add(leg);
+  }
+  const wingGeo=new THREE.PlaneGeometry(0.5,0.16);
+  const wingMat=new THREE.MeshStandardMaterial({color:0x9fb4c8,transparent:true,opacity:0.24,
+    side:THREE.DoubleSide,emissive:new THREE.Color(0x8fd4ff),emissiveIntensity:0.35,depthWrite:false});
+  const wings=[];
+  for(const s of [-1,1]){
+    const w=new THREE.Mesh(wingGeo,wingMat);
+    w.position.set(-0.05,0.16,s*0.1);
+    w.rotation.x=Math.PI/2;
+    g.add(w); wings.push(w);
+  }
+  g.position.set(2.7,0.62,-3.1);
+  g.rotation.y=-2.35;
+  scene.add(g);
+  flyFly={g,wings,base:g.position.y,wingT:Math.random()*10};
+}
+
+window.addEventListener('DOMContentLoaded',()=>{
+  if(new URLSearchParams(location.search).has('flat')) return;   // DOM panels only
+  try { renderer=new THREE.WebGLRenderer({canvas:document.getElementById('scene'),antialias:true}); }
+  catch(e){ return; }
+  if(!renderer.getContext()) return;
+  renderer.setPixelRatio(Math.min(devicePixelRatio,2));
+  scene=new THREE.Scene();
+  scene.fog=new THREE.Fog(0x06070a,8,18);
+  camera=new THREE.PerspectiveCamera(46,innerWidth/innerHeight,0.1,60);
+  scene.add(new THREE.AmbientLight(0x232830,1.5));
+  const key=new THREE.PointLight(0x5ac8ff,30,20);key.position.set(3,5.5,2.5);scene.add(key);
+  const warm=new THREE.PointLight(0xff4a3d,12,14);warm.position.set(-3,2.4,-2.5);scene.add(warm);
+  buildFlyFly();
+  const resize=()=>{renderer.setSize(innerWidth,innerHeight,false);
+    camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();};
+  addEventListener('resize',resize);resize();
+
+  fetch('/api/brain').then(r=>r.json()).then(b=>{
+    const n=b.points.length;
+    window.brainData={depth:new Float32Array(n),region:new Uint8Array(n),baseCol:new Float32Array(n*3)};
+    const pos=new Float32Array(n*3),col=new Float32Array(n*3),sz=new Float32Array(n);
+    const cOB=new THREE.Color('#5ac8ff'),cCB=new THREE.Color('#cfd6ff'),cVNC=new THREE.Color('#ff4a3d');
+    for(let i=0;i<n;i++){
+      const [x,y,z,r,d]=b.points[i];pos.set([x*1.15,y*1.15+0.35,z*1.15-3.4],i*3);
+      const c=r===0?cOB:(r===1?cCB:cVNC);col.set([c.r,c.g,c.b],i*3);
+      window.brainData.depth[i]=d; window.brainData.region[i]=r;
+      window.brainData.baseCol.set([c.r,c.g,c.b],i*3);sz[i]=r===2?2.2:1.9;
+    }
+    const geo=new THREE.BufferGeometry();
+    geo.setAttribute('position',new THREE.BufferAttribute(pos,3));
+    geo.setAttribute('color',new THREE.BufferAttribute(col,3));
+    geo.setAttribute('psize',new THREE.BufferAttribute(sz,1));
+    brainMat=new THREE.ShaderMaterial({transparent:true,depthWrite:false,blending:THREE.AdditiveBlending,
+      uniforms:{uTime:{value:0},uBoost:{value:0}},
+      vertexShader:`attribute float psize;varying vec3 vColor;
+        void main(){vColor=color;vec4 mv=modelViewMatrix*vec4(position,1.0);
+        gl_PointSize=psize*(52.0/-mv.z);gl_Position=projectionMatrix*mv;}`,
+      fragmentShader:`varying vec3 vColor;uniform float uTime;uniform float uBoost;
+        void main(){float d=length(gl_PointCoord-0.5);
+        float a=smoothstep(0.5,0.05,d)*(0.11+0.05*sin(uTime*1.4)+uBoost);
+        gl_FragColor=vec4(vColor,a);}`,
+      vertexColors:true});
+    brainPts=new THREE.Points(geo,brainMat);
+    scene.add(brainPts);
+  });
+  document.querySelectorAll('button.les').forEach(b=>{
+    b.onclick=async()=>{
+      const r=b.dataset.r===''?null:parseInt(b.dataset.r);
+      await fetch('/api/silence',{method:'POST',headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({region:r})});
+      syncLesionButtons(r);
+      if(window.brainSilence) window.brainSilence(r);
+      setFireBadge(r);
+    };
+  });
+  fetch('/api/silence').then(r=>r.json()).then(s=>{
+    syncLesionButtons(s.silenced);
+    if(window.brainSilence&&s.silenced!==null) window.brainSilence(s.silenced);
+    setFireBadge(s.silenced);
+  }).catch(()=>{});
+  requestAnimationFrame(loop);
+});
+function syncLesionButtons(r){
+  document.querySelectorAll('button.les').forEach(b=>{
+    const v=b.dataset.r===''?null:parseInt(b.dataset.r);
+    b.classList.toggle('on', v===r);
+  });
+}
+
+let lastT=0,dt=0.016;
+function loop(t){
+  requestAnimationFrame(loop);
+  if(document.hidden||!renderer) return;
+  if(t-lastT<33) return; lastT=t;
+  if(brainPts){ brainPts.rotation.y+=0.0016; brainMat.uniforms.uTime.value=t*0.001;
+    brainMat.uniforms.uBoost.value*=0.96; }
+  if(waveT>=0&&waveData){
+    waveT++;
+    const i=Math.min(waveData.length-1,Math.floor(waveT/3));
+    if(brainMat) brainMat.uniforms.uBoost.value=Math.min(0.5,0.02+waveData[i][2]*0.0006);
+    if(waveT>waveData.length*3+60) waveT=-1;
+  }
+  if(flyFly){
+    flyFly.wingT+=dt;
+    const excited=busy;
+    const hz=excited?26:4;
+    const amp=excited?0.95:0.12;
+    for(let i=0;i<2;i++){
+      const w=flyFly.wings[i];
+      w.rotation.z=Math.PI/2 - Math.sin(flyFly.wingT*hz*Math.PI*2*(i?1:-1))*amp*(i?0.8:1);
+      w.rotation.y=(i?0.35:-0.35);
+    }
+    flyFly.g.position.y=flyFly.base+Math.sin(flyFly.wingT*4.2)*0.02;
+  }
+  const hr=camDist*Math.sin(camPhi), y=camDist*Math.cos(camPhi);
+  camera.position.lerp(new THREE.Vector3(camTgt.x+hr*Math.sin(camTheta),
+    Math.max(0.9,camTgt.y+y),camTgt.z+hr*Math.cos(camTheta)),0.09);
+  camera.lookAt(camTgt);
+  renderer.render(scene,camera);
+}
+function playWave(r){
+  if(!window.brainData||!brainPts){ waveData=r.wave; waveT=0; return; }
+  if(window.brainWave) window.brainWave(r);
+  else { waveData=r.wave; waveT=0; }
+}
+window.brainSilence=function(r){
+  if(!window.brainData||!brainPts) return;
+  const col=brainPts.geometry.attributes.color;
+  const bc=window.brainData.baseCol;
+  for(let i=0;i<col.count;i++){
+    if(r===null || window.brainData.region[i]!==r){
+      col.array.set([bc[i*3],bc[i*3+1],bc[i*3+2]],i*3);
+    } else {
+      col.array.set([0.10,0.11,0.13],i*3);
+    }
+  }
+  col.needsUpdate=true;
+};
+window.brainWave=function(r){
+  brainWaveState={active:r.active||[],start:performance.now(),depth:window.brainData.depth};
+};
+let brainWaveState=null;
+function tickBrainWave(now){
+  if(!brainWaveState||!brainPts) return;
+  const col=brainPts.geometry.attributes.color, bc=window.brainData.baseCol;
+  const {active,start,depth}=brainWaveState;
+  for(const [pi,cnt] of active){
+    const d=(depth[pi]<1e8?depth[pi]:20)*80;
+    const a=(now-start)-d;
+    if(a>0&&a<1600){
+      const k=1-a/1600, boost=Math.min(2.2,0.5+Math.log2(1+cnt)*0.7)*k;
+      col.array[pi*3]  =Math.min(1.6,bc[pi*3]+boost*0.9);
+      col.array[pi*3+1]=Math.min(1.6,bc[pi*3+1]+boost*0.8);
+      col.array[pi*3+2]=Math.min(1.6,bc[pi*3+2]+boost*0.5);
+    } else if(a>=1600){
+      col.array[pi*3]=bc[pi*3];col.array[pi*3+1]=bc[pi*3+1];col.array[pi*3+2]=bc[pi*3+2];
+    }
+  }
+  col.needsUpdate=true;
+  if(performance.now()-start>4200) brainWaveState=null;
+}
+setInterval(()=>tickBrainWave(performance.now()),33);
+
+/* ============================== api + panel ============================== */
+function setMsg(t,live){document.getElementById('msg').textContent=t;
+  document.querySelector('#status .dot').classList.toggle('live',!!live);}
+function setFireBadge(r){
+  const b=document.getElementById('fbadge');
+  if(r===null||r===undefined){ b.style.display='none'; return; }
+  b.textContent=(LESION_NAMES[r]||'region')+' silenced — rerun the tile';
+  b.style.display='block';
+}
+async function initSamples(){
+  const s=await fetch('/api/samples').then(r=>r.json()).catch(()=>({tiles:[]}));
+  const box=document.getElementById('thumbs'); box.innerHTML='';
+  (s.tiles||[]).forEach(t=>{
+    const im=document.createElement('img');
+    im.src='/api/sample/'+t.id; im.dataset.id=t.id;
+    im.title=(t.true_label?'damaged':'undamaged')+
+      (t.y5!==undefined&&t.y5>0?' (severity '+t.y5+'/4)':'')+
+      ' — held-out fly score '+(t.fly_score??'—');
+    if(t.kind==='miss') im.classList.add('miss');
+    im.onclick=()=>pickSample(t.id);
+    box.appendChild(im);
+  });
+  if((s.tiles||[]).length) pickSample(s.tiles[0].id);
+}
+async function pickSample(id){
+  document.querySelectorAll('#thumbs img').forEach(t=>t.classList.toggle('sel',t.dataset.id===id));
+  document.getElementById('firetile').src='/api/sample/'+id;
+  await classifyFire({sample_id:id},null);
+}
+async function classifyFire(jsonBody,fileBlob){
+  if(busy) return;
+  busy=true; setMsg('the fly is reading the tile…',true);
+  document.getElementById('truthline').textContent='';
+  try{
+    const r=await fetch('/api/classify',{method:'POST',
+      headers:{'Content-Type':fileBlob?(fileBlob.type||'image/jpeg'):'application/json'},
+      body:fileBlob||JSON.stringify(jsonBody)}).then(r=>r.json());
+    if(r.detail){ setMsg(r.detail); return; }
+    drawResult(r);
+  }catch(e){ setMsg('connection hiccup — try again'); }
+  finally{ busy=false; setMsg('pick a tile or upload one'); }
+}
+function drawResult(r){
+  document.getElementById('s1').textContent=Math.round(r.spikes).toLocaleString();
+  document.getElementById('s3').textContent=r.sim_ms;
+  const v=document.getElementById('verdict');
+  v.innerHTML='the fly\'s read: <b class="'+(r.verdict==='damaged'?'d':'u')+'">'+r.verdict+'</b>';
+  document.getElementById('scorefill').style.width=(r.p_damaged*100).toFixed(1)+'%';
+  document.getElementById('scorenum').textContent=(r.p_damaged).toFixed(3);
+  setFireBadge(r.silenced);
+  let t='';
+  if(r.true_label!==undefined&&r.true_label!==null){
+    const ok=(r.p_damaged>=0.5)===(r.true_label===1);
+    t='truth: <b>'+(r.true_label?'damaged':'undamaged')+'</b> — '+
+      (ok?'fly got it':'fly missed')+
+      (r.fly_score_held_out!==undefined&&r.fly_score_held_out!==null
+        ?' · held-out score was '+r.fly_score_held_out.toFixed(3):'');
+  }
+  document.getElementById('truthline').innerHTML=t;
+  playWave(r);
+}
+document.getElementById('fupload-btn').onclick=()=>document.getElementById('fupload').click();
+document.getElementById('fupload').onchange=e=>{
+  const f=e.target.files[0]; if(!f) return;
+  document.querySelectorAll('#thumbs img').forEach(t=>t.classList.remove('sel'));
+  document.getElementById('firetile').src=URL.createObjectURL(f);
+  classifyFire(null,f);
+  e.target.value='';
+};
+
+/* ============================== benchmark panel ============================== */
+const CI=(v)=>v?'<span style="color:var(--dim)">±['+v[0]+'–'+v[1]+']</span>':'';
+function renderBench(b){
+  const c=b.conditions, meta=b.meta;
+  const row=(name,cond,cls)=>{
+    if(!cond) return '';
+    const l=cond.lesion!==undefined?cond.lesion:undefined;
+    return `<tr${cls?' class="'+cls+'"':''}><td>${name}</td>
+      <td class="num bacc">${fmt(cond.balanced_accuracy)}</td>
+      <td class="num">${fmt(cond.roc_auc)}</td>
+      <td class="num">${fmt(cond.accuracy)}</td>
+      <td class="num">${CI(cond.ci&&cond.ci.balanced_accuracy)}</td></tr>`;
+  };
+  const fmt=(v)=> (v===undefined||v===null||Number.isNaN(v))?'—':(+v).toFixed(3);
+  let html=`<div class="cols"><div>
+  <h3>held-out benchmark · ${meta.data.val} tiles · binary: undamaged vs damaged</h3>
+  <table><thead><tr><th>feature extractor</th><th style="text-align:right">bal acc ↑</th>
+    <th style="text-align:right">AUC ↑</th><th style="text-align:right">acc</th>
+    <th style="text-align:right">95% CI (bal acc)</th></tr></thead><tbody>`;
+  html+=`<tr><td style="color:var(--dim)">chance</td><td class="num">0.500</td>
+    <td class="num">0.500</td><td class="num">${(meta.data.undamaged/(meta.data.undamaged+meta.data.damaged)).toFixed(3)}</td><td></td></tr>`;
+  html+=row('frozen fly circuit (the experiment)',c.real,'hero');
+  html+=row('shuffled connectome (rewired)',c.shuffled);
+  html+=row('all-excitatory (inhibition removed)',c.all_excitatory);
+  html+=row('random sparse wiring',c.random_sparse);
+  html+=row('pooled pixels, no circuit (baseline)',c.pixel_mlp);
+  html+=row('label shuffle (leakage check)',{...c.label_shuffle,balanced_accuracy:NaN,accuracy:NaN});
+  html+=`</tbody></table>
+  <div style="font-size:10.5px;color:var(--dim);margin-top:4px">
+  decoder seeds ${meta.decoder_seeds.join('/')} · bootstrap ${meta.bootstrap_resamples} resamples ·
+  threshold ${meta.threshold} (scores not calibrated) · primary metric: balanced accuracy</div>
+  </div><div>`;
+  if(c.lesions){
+    html+=`<div class="sect"><h3>lesion ablation · decoder frozen</h3>
+    <table><thead><tr><th>condition</th><th style="text-align:right">bal acc</th>
+    <th style="text-align:right">Δ vs intact</th></tr></thead><tbody>`;
+    const L=[['intact (no lesion)',c.real],['optic lobe silenced',c.lesions.optic_lesioned],
+      ['central brain silenced',c.lesions.central_lesioned],['VNC silenced',c.lesions.vnc_lesioned],
+      ['random neurons matched to optic size',c.lesions.random_matched_optic],
+      ['no image at all (drive = 0)',c.lesions.no_sensory_input]];
+    L.forEach(([n,cond])=>{ if(!cond) return;
+      const d=cond.delta_balanced_accuracy;
+      html+=`<tr><td>${n}</td><td class="num bacc">${fmt(cond.balanced_accuracy)}</td>
+      <td class="num" style="color:${d===undefined?'var(--dim)':(d<-0.02?'var(--red)':'var(--dim)')}">${d===undefined?'—':(d>0?'+':'')+d.toFixed(3)}</td></tr>`;});
+    html+=`</tbody></table></div>`;
+  }
+  html+=`<div class="sect"><h3>data</h3><div style="font-size:11.5px;color:var(--dim);line-height:1.6">
+  ${meta.data.unique_tiles} unique tiles (hash-deduped) · ${meta.data.undamaged} undamaged ·
+  ${meta.data.damaged} damaged · ${meta.data.train} train / ${meta.data.val} held out<br>
+  ${meta.split}</div></div>`;
+  html+='</div></div>';
+  document.getElementById('benchbody').innerHTML=html;
+}
+
+/* ============================== boot ============================== */
+fetch('/healthz').then(r=>r.json()).then(h=>{
+  document.getElementById('hdr').textContent=h.device.toUpperCase()+' · frozen wiring · tiny trained decoder';
+  setMsg('pick a tile or upload one');
+  initSamples();
+  fetch('/api/benchmark').then(r=>{ if(r.ok) return r.json(); throw 0; })
+    .then(b=>renderBench(b))
+    .catch(()=>{ document.getElementById('benchbody').textContent=
+      'benchmark not generated yet — run firefly.train'; });
+}).catch(()=>setMsg('server unreachable'));
+</script>
+</body>
+</html>
